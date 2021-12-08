@@ -21,7 +21,8 @@
 				"chart.js": "/npm/chart.js",
 				"@springio/utils": "/npm/@springio/utils",
 				"react": "/npm/react/umd/react.development.js",
-				"react-dom": "/npm/react-dom/umd/react-dom.development.js"
+				"react-dom": "/npm/react-dom/umd/react-dom.development.js",
+				"@babel/standalone": "/npm/@babel/standalone"
 			}
 		}
 	</script>
@@ -30,6 +31,7 @@
 		import '@springio/utils';
 		import * as React from 'react';
 		import * as ReactDOM from 'react-dom';
+		import '@babel/standalone';
 	</script>
 	<script type="module">
 		import * as Turbo from '@hotwired/turbo';
@@ -172,24 +174,11 @@
 			};
 		});
 	</script>
-	<script type="module">
-		const e = React.createElement;
-
-		class RootComponent extends React.Component {
-			constructor(props) {
-				super(props);
-			}
-
-			render() {
-				return e(
-					'div',
-					{},
-					'Hello, world!'
-				);
-			}
-		}
-
-		ReactDOM.render(e(RootComponent), document.querySelector('#root'));
+	<script type="text/babel">
+		ReactDOM.render(
+			<h1>Hello, world!</h1>,
+			document.getElementById('root')
+		);
 	</script>
 
 </body>
