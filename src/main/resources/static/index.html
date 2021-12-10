@@ -177,7 +177,6 @@
 		import Vue from 'vue';
 
 		const EventHandling = {
-			el: "#event-handling",
 			data() {
 				return {
 					message: 'Hello Vue.js!'
@@ -193,7 +192,7 @@
 			}
 		}
 
-		new Vue(EventHandling);
+		new Vue(EventHandling).$mount("#event-handling");
 	</script>
 
 </body>
