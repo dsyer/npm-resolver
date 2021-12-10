@@ -27,12 +27,8 @@ import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.mustache.MustacheProperties;
 import org.springframework.boot.json.JsonParser;
 import org.springframework.boot.json.JsonParserFactory;
-import org.springframework.context.annotation.Bean;
-import org.springframework.core.Ordered;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PropertiesLoaderUtils;
@@ -65,9 +61,17 @@ public class NpmVersionResolver {
 
 	@GetMapping("/npm/{webjar}")
 	public ResponseEntity<Void> module(@PathVariable String webjar) {
-		String path = findWebJarResourcePath(webjar, "/");
+		String spec = null;
+		int index = webjar.indexOf("@");
+		if (index>0) {
+			if (index < webjar.length()) {
+				spec = webjar.substring(index + 1);
+			}
+			webjar = webjar.substring(0, index);
+		}
+		String path = findWebJarResourcePath(webjar, spec, "/");
 		if (path == null) {
-			path = findUnpkgPath(webjar, "");
+			path = findUnpkgPath(webjar, spec, "");
 			return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(path)).build();
 		}
 		return ResponseEntity.status(HttpStatus.FOUND).location(URI.create("/webjars/" + path)).build();
@@ -75,19 +79,27 @@ public class NpmVersionResolver {
 
 	@GetMapping("/npm/{webjar}/{*remainder}")
 	public ResponseEntity<Void> remainder(@PathVariable String webjar, @PathVariable String remainder) {
+		String spec = null;
+		int index = webjar.indexOf("@");
+		if (index>0) {
+			if (index < webjar.length()) {
+				spec = webjar.substring(index + 1);
+			}
+			webjar = webjar.substring(0, index);
+		}
 		if (webjar.startsWith("@")) {
-			int index = remainder.indexOf("/",1);
-			String path = index < 0 ? remainder.substring(1) : remainder.substring(1, index);
+			int slash = remainder.indexOf("/",1);
+			String path = slash < 0 ? remainder.substring(1) : remainder.substring(1, slash);
 			webjar = webjar.substring(1) + "__" + path;
-			if (index < 0 || index == remainder.length() - 1) {
+			if (slash < 0 || slash == remainder.length() - 1) {
 				return module(webjar);
 			}
-			remainder = remainder.substring(index);
+			remainder = remainder.substring(slash);
 		}
-		String path = findWebJarResourcePath(webjar, remainder);
+		String path = findWebJarResourcePath(webjar, spec, remainder);
 		if (path == null) {
-			if (version(webjar) == null) {
-				path = findUnpkgPath(webjar, remainder);
+			if (version(webjar, spec) == null) {
+				path = findUnpkgPath(webjar, spec, remainder);
 			} else {
 				return ResponseEntity.notFound().build();
 			}
@@ -96,7 +108,7 @@ public class NpmVersionResolver {
 		return ResponseEntity.status(HttpStatus.FOUND).location(URI.create("/webjars/" + path)).build();
 	}
 
-	private String findUnpkgPath(String webjar, String remainder) {
+	private String findUnpkgPath(String webjar, String spec, String remainder) {
 		if (!StringUtils.hasText(remainder)) {
 			remainder = "";
 		} else if (!remainder.startsWith("/")) {
@@ -104,6 +116,9 @@ public class NpmVersionResolver {
 		}
 		if (webjar.contains("__")) {
 			webjar = "@" + webjar.replace("__", "/");
+		}
+		if (spec != null) {
+			webjar = webjar + "@" + spec;
 		}
 		String local = findLocalPath(webjar+remainder);
 		if (local != null) {
@@ -125,9 +140,9 @@ public class NpmVersionResolver {
 	}
 
 	@Nullable
-	protected String findWebJarResourcePath(String webjar, String path) {
+	protected String findWebJarResourcePath(String webjar, String spec, String path) {
 		if (webjar.length() > 0) {
-			String version = version(webjar);
+			String version = version(webjar, spec);
 			if (version != null) {
 				String partialPath = path(webjar, version, path);
 				if (partialPath != null) {
@@ -196,7 +211,7 @@ public class NpmVersionResolver {
 		return (String) sub.getOrDefault(elements[elements.length - 1], defaultValue);
 	}
 
-	private String version(String webjar) {
+	private String version(String webjar, String spec) {
 		Resource resource = new ClassPathResource(PROPERTIES_ROOT + NPM + webjar + POM_PROPERTIES);
 		if (!resource.isReadable()) {
 			resource = new ClassPathResource(PROPERTIES_ROOT + PLAIN + webjar + POM_PROPERTIES);
@@ -205,7 +220,10 @@ public class NpmVersionResolver {
 			Properties properties;
 			try {
 				properties = PropertiesLoaderUtils.loadProperties(resource);
-				return properties.getProperty("version");
+				String value = properties.getProperty("version");
+				if (spec==null || value.startsWith(spec)) {
+					return value;
+				}
 			} catch (IOException e) {
 			}
 		}

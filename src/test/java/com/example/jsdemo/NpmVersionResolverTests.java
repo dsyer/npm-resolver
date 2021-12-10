@@ -21,6 +21,14 @@ public class NpmVersionResolverTests {
 	}
 
 	@Test
+	void resolvesVersionInWebjar() {
+		ResponseEntity<Void> response = resolver.module("bootstrap@5");
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FOUND);
+		String location = response.getHeaders().getFirst("location");
+		assertThat(location).startsWith("/webjars");
+	}
+
+	@Test
 	void notFoundInWebjar() {
 		ResponseEntity<Void> response = resolver.remainder("bootstrap", "/notthere.js");
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
@@ -79,6 +87,22 @@ public class NpmVersionResolverTests {
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FOUND);
 		String location = response.getHeaders().getFirst("location");
 		assertThat(location).isEqualTo("https://unpkg.com/jquery/index.js");
+	}
+
+	@Test
+	void resolvesUnpkgVersionWhenWebjarNotAvailable() {
+		ResponseEntity<Void> response = resolver.module("jquery@2");
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FOUND);
+		String location = response.getHeaders().getFirst("location");
+		assertThat(location).isEqualTo("https://unpkg.com/jquery@2");
+	}
+
+	@Test
+	void resolvesUnpkgVersionAndPathWhenWebjarNotAvailable() {
+		ResponseEntity<Void> response = resolver.module("jquery@2/jquery/index.js");
+		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FOUND);
+		String location = response.getHeaders().getFirst("location");
+		assertThat(location).isEqualTo("https://unpkg.com/jquery@2/jquery/index.js");
 	}
 
 }
